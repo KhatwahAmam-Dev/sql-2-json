@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Konversi SQL ke JSON — Dashboard Toko</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+:root{
+  --paper:#F6F3EC; --paper-dim:#EFEBE1; --ink:#1C2B27; --ink-soft:#4B5A55;
+  --line:#D8D0BC; --line-strong:#B9AF95; --teal:#1B4C43; --teal-deep:#0F332C;
+  --amber:#D9931E; --amber-soft:#F4E1BC; --green:#25795A; --green-soft:#E1EFE6;
+  --red:#B4453A; --red-soft:#F5E1DE; --card:#FFFFFF;
+  --shadow: 0 1px 2px rgba(28,43,39,0.06), 0 4px 14px rgba(28,43,39,0.05);
+  --radius: 10px; --mono:'IBM Plex Mono',monospace; --display:'Space Grotesk',sans-serif; --body:'Inter',sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{ background:var(--paper); color:var(--ink); font-family:var(--body); font-size:14px; line-height:1.5;
+  background-image: radial-gradient(circle at 1px 1px, rgba(27,76,67,0.06) 1px, transparent 0); background-size:22px 22px; }
+.wrap{ max-width:760px; margin:0 auto; padding: 34px 20px 70px; }
+.brand{ display:flex; align-items:center; gap:10px; margin-bottom:22px; }
+.brand .mark{ font-family:var(--display); font-weight:700; font-size:19px; color:var(--teal-deep); }
+.brand .sub{ font-family:var(--mono); font-size:11px; color:var(--ink-soft); }
+h1{ font-family:var(--display); font-size:22px; color:var(--teal-deep); margin:0 0 6px; }
+.lede{ font-size:13px; color:var(--ink-soft); margin:0 0 24px; line-height:1.65; max-width:620px; }
+
+.card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px 22px; box-shadow:var(--shadow); margin-bottom:18px; }
+.card h3{ margin:0 0 10px; font-family:var(--display); font-size:15px; color:var(--teal-deep); }
+
+.upload-box{ border:2px dashed var(--line-strong); border-radius:12px; padding:34px 24px; text-align:center; transition:border-color .15s,background .15s; }
+.upload-box.dragover{ border-color:var(--amber); background:var(--amber-soft); }
+.upload-box .up-icon{ font-family:var(--mono); font-size:30px; color:var(--teal); }
+.upload-box p{ font-size:12.6px; color:var(--ink-soft); margin: 8px 0 18px; }
+.upload-box input[type=file]{ display:none; }
+.btn-primary{ font-family:var(--body); font-weight:600; font-size:13.5px; background:var(--teal); color:#fff; border:none; padding:11px 22px; border-radius:8px; cursor:pointer; }
+.btn-primary:hover{ background:var(--teal-deep); }
+.btn-primary[disabled]{ opacity:.4; cursor:not-allowed; }
+.btn-secondary{ font-family:var(--body); font-weight:600; font-size:12.5px; background:#fff; color:var(--teal-deep); border:1px solid var(--line-strong); padding:9px 15px; border-radius:7px; cursor:pointer; }
+.btn-secondary:hover{ background:var(--paper-dim); }
+.btn-secondary[disabled]{ opacity:.4; cursor:not-allowed; }
+.filename-tag{ font-family:var(--mono); font-size:11.5px; background:var(--paper-dim); border-radius:6px; padding:6px 10px; display:inline-block; margin-top:10px; }
+
+.progress-wrap{ display:none; margin-top:16px; }
+.progress-wrap.show{ display:block; }
+.progress-bar{ height:8px; background:var(--paper-dim); border-radius:5px; overflow:hidden; }
+.progress-bar .fill{ height:100%; width:0%; background:var(--amber); transition:width .2s ease; }
+.log{ font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin-top:10px; white-space:pre-line; line-height:1.7; max-height:160px; overflow-y:auto; }
+.log .ok{ color:var(--green); }
+.log .err{ color:var(--red); }
+
+.error-box{ display:none; margin-top:14px; font-size:12px; color:var(--red); background:var(--red-soft); border-radius:6px; padding:10px 12px; }
+
+.result{ display:none; }
+.result.show{ display:block; }
+.kpi-row{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:18px; }
+.kpi{ background:#fff; border:1px solid var(--line); border-radius:9px; padding:12px 14px; }
+.kpi .label{ font-size:10px; text-transform:uppercase; letter-spacing:.6px; color:var(--ink-soft); font-weight:600; margin-bottom:5px;}
+.kpi .value{ font-family:var(--mono); font-size:16.5px; font-weight:600; }
+
+.dl-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:4px; }
+select{ font-family:var(--body); font-size:12.6px; padding:8px 10px; border:1px solid var(--line-strong); border-radius:6px; background:#fff; color:var(--ink); }
+.note{ font-size:12px; color:var(--ink-soft); background:var(--paper-dim); border-left:3px solid var(--amber); padding:9px 12px; border-radius:0 6px 6px 0; margin: 10px 0 0; }
+.table-list{ font-family:var(--mono); font-size:11px; color:var(--ink-soft); line-height:1.9; }
+footer{ margin-top:30px; font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="mark">🧾 KONVERSI SQL → JSON</span><span class="sub">untuk Dashboard Toko</span></div>
+  <h1>Konversi Dump Database Toko</h1>
+  <p class="lede">Upload file <b>.sql</b> (hasil pg_dump database POS toko) di sini. Semua proses — baca file, olah tabel, hitung laporan — berjalan <b>langsung di browser Anda</b>, tidak ada data yang terkirim ke server mana pun. Hasilnya bisa langsung diunggah ke Dashboard Toko, atau diunduh sebagai tabel mentah lengkap dengan header kolom.</p>
+
+  <div class="card">
+    <h3>1. Upload File SQL</h3>
+    <div class="upload-box" id="upload-box">
+      <div class="up-icon">⇪</div>
+      <p>Tarik &amp; letakkan file <b>.sql</b> di sini, atau klik tombol di bawah.<br>Mendukung file besar (ratusan MB) — pemrosesan sepenuhnya lokal.</p>
+      <label class="btn-primary" for="file-input">Pilih File .sql</label>
+      <input type="file" id="file-input" accept=".sql,text/plain">
+      <div id="filename-tag" style="display:none;"></div>
+    </div>
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bar"><div class="fill" id="progress-fill"></div></div>
+      <div class="log" id="log"></div>
+    </div>
+    <div class="error-box" id="error-box"></div>
+  </div>
+
+  <div class="card result" id="result-card">
+    <h3>2. Ringkasan Hasil</h3>
+    <div class="kpi-row" id="kpi-row"></div>
+    <div class="note" id="result-meta"></div>
+  </div>
+
+  <div class="card result" id="download-card">
+    <h3>3. Unduh Hasil</h3>
+    <p style="font-size:12.6px;color:var(--ink-soft);margin:0 0 12px;">
+      <b>Opsi A</b> — unduh JSON siap pakai untuk diunggah ke <i>Dashboard Toko.html</i> (laporan penjualan, barang masuk/keluar, kasir, rugi laba, dsb — sudah diringkas/dihitung).
+    </p>
+    <div class="dl-row">
+      <button class="btn-primary" id="dl-dashboard-json">⬇ Download JSON Dashboard</button>
+    </div>
+    <p style="font-size:12.6px;color:var(--ink-soft);margin:18px 0 12px;">
+      <b>Opsi B</b> — unduh tabel mentah apa adanya (satu tabel database = satu sheet/file), <b>lengkap dengan header nama kolom di baris pertama</b>, untuk diperiksa manual di Excel.
+    </p>
+    <div class="dl-row">
+      <button class="btn-secondary" id="dl-all-excel">⬇ Download Semua Tabel (1 file Excel, multi-sheet, dengan header)</button>
+    </div>
+    <div class="dl-row" style="margin-top:10px;">
+      <select id="table-select"></select>
+      <button class="btn-secondary" id="dl-one-csv">⬇ CSV (dengan header)</button>
+      <button class="btn-secondary" id="dl-one-json">⬇ JSON (dengan header/key)</button>
+    </div>
+    <div class="note">Tabel mutasi stok (<code>m_mst_inv</code>) tidak disertakan dalam unduhan "tabel mentah" karena jumlah barisnya sangat besar (ratusan ribu baris) — datanya sudah diringkas otomatis per hari di dalam JSON Dashboard (Opsi A).</div>
+  </div>
+
+  <footer>Diproses 100% di browser — tidak ada data yang diunggah ke server.</footer>
+</div>
+<script>
+// ============================================================
+// Konversi SQL (pg_dump) -> JSON Dashboard Toko — 100% client-side
+// ============================================================
+
+const WANTED_TABLES = [
+  'm_tsale','m_trans','pohead','podet','retur','clerek','m_employee','ms_item',
+  'm_store','m_purchase','m_supp','m_cust','m_kategori','m_dept','m_divisi','m_promo_kasir'
+];
+// m_mst_inv is handled specially (streamed aggregation only, not stored raw — too large)
+
+const logEl = document.getElementById('log');
+const progressWrap = document.getElementById('progress-wrap');
+const progressFill = document.getElementById('progress-fill');
+const errorBox = document.getElementById('error-box');
+
+function logLine(msg, cls){
+  const span = document.createElement('div');
+  if (cls) span.className = cls;
+  span.textContent = msg;
+  logEl.appendChild(span);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function setProgress(pct){ progressFill.style.width = Math.max(0,Math.min(100,pct)) + '%'; }
+function showError(msg){
+  errorBox.textContent = msg;
+  errorBox.style.display = 'block';
+}
+function clearError(){ errorBox.style.display = 'none'; errorBox.textContent=''; }
+function sleep0(){ return new Promise(r=>setTimeout(r,0)); }
+
+function toNum(v){
+  if (v === null || v === undefined || v === '') return 0;
+  const n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
+}
+function unescapeField(s){
+  if (s === '\\N' || s === undefined) return null;
+  if (s.indexOf('\\') === -1) return s;
+  return s.replace(/\\(.)/g, (m,c)=>{
+    if (c === 'n') return '\n';
+    if (c === 't') return '\t';
+    if (c === 'r') return '\r';
+    if (c === '\\') return '\\';
+    return c;
+  });
+}
+function round2(v){
+  if (v === null || v === undefined || isNaN(v)) return v;
+  return Math.round(v*100)/100;
+}
+
+// ---------------- CORE COPY-BLOCK PARSER ----------------
+// Scans the whole dump text once; for each COPY public.<table> (...) FROM stdin; block
+// matching a registered handler, calls handler.onRow(fieldsArray, colIndexMap) per data line.
+function parseSQLDump(text, handlers, onProgress){
+  const len = text.length;
+  let pos = 0;
+  let current = null; // {handler, colIndex}
+  let lineCount = 0;
+  const COPY_RE = /^COPY public\.(\w+) \((.*)\) FROM stdin;$/;
+
+  while (pos < len){
+    let nl = text.indexOf('\n', pos);
+    if (nl === -1) nl = len;
+    let line = text.substring(pos, nl);
+    if (line.endsWith('\r')) line = line.slice(0,-1);
+    pos = nl + 1;
+    lineCount++;
+
+    if (current){
+      if (line === '\\.'){
+        if (current.handler.onEnd) current.handler.onEnd();
+        current = null;
+      } else {
+        const fields = line.split('\t');
+        current.handler.onRow(fields, current.colIndex);
+      }
+    } else if (line.charCodeAt(0) === 67 /* 'C' */ && line.startsWith('COPY public.')){
+      const m = COPY_RE.exec(line);
+      if (m){
+        const tname = m[1];
+        const h = handlers[tname];
+        if (h){
+          const cols = m[2].split(',').map(s=>s.trim());
+          const colIndex = {};
+          cols.forEach((c,i)=> colIndex[c]=i);
+          current = { handler: h, colIndex };
+          if (h.onColumns) h.onColumns(cols);
+        }
+      }
+    }
+    if (onProgress && (lineCount % 200000 === 0)){
+      onProgress(pos/len);
+    }
+  }
+}
+
+// Build a generic "collect all rows as objects" handler
+function collectorHandler(targetArray, fieldNames){
+  return {
+    onRow(fields, colIndex){
+      const o = {};
+      const names = fieldNames || Object.keys(colIndex);
+      for (const name of names){
+        const idx = colIndex[name];
+        o[name] = idx === undefined ? null : unescapeField(fields[idx]);
+      }
+      targetArray.push(o);
+    }
+  };
+}
+
+// ---------------- GROUPBY HELPERS ----------------
+function groupBy(rows, keyFn){
+  const m = new Map();
+  for (const r of rows){
+    const k = keyFn(r);
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(r);
+  }
+  return m;
+}
+function sortDesc(arr, key){ return [...arr].sort((a,b)=> (b[key]||0)-(a[key]||0)); }
+function sortAsc(arr, key){ return [...arr].sort((a,b)=> (a[key]||0)-(b[key]||0)); }
+
+// ============================================================
+// MAIN PROCESSING
+// ============================================================
+async function processSQLFile(file){
+  clearError();
+  logEl.innerHTML = '';
+  progressWrap.classList.add('show');
+  document.getElementById('result-card').classList.remove('show');
+  document.getElementById('download-card').classList.remove('show');
+  setProgress(0);
+
+  logLine(`File: ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)`);
+  logLine('Membaca file...');
+  await sleep0();
+
+  let text;
+  try{
+    text = await file.text();
+  }catch(err){
+    showError('Gagal membaca file: ' + err.message);
+    progressWrap.classList.remove('show');
+    return;
+  }
+  logLine('File terbaca. Memulai parsing tabel...', 'ok');
+  await sleep0();
+
+  // ---- raw collectors ----
+  const raw = {
+    m_tsale: [], m_trans: [], pohead: [], podet: [], retur: [], clerek: [],
+    m_employee: [], ms_item: [], m_store: [], m_purchase: [], m_supp: [],
+    m_cust: [], m_kategori: [], m_dept: [], m_divisi: [], m_promo_kasir: []
+  };
+  // movement_daily aggregated on the fly (m_mst_inv too large to store raw)
+  const movementDaily = new Map(); // date -> {recip,retur,sales,koreksi}
+  let mstInvRowCount = 0;
+
+  const handlers = {};
+  for (const t of WANTED_TABLES){ handlers[t] = collectorHandler(raw[t]); }
+  handlers['m_mst_inv'] = {
+    onRow(fields, colIndex){
+      mstInvRowCount++;
+      const date = fields[colIndex['tanggal']];
+      if (!movementDaily.has(date)) movementDaily.set(date, {tanggal:date, recip:0, retur:0, sales:0, koreksi:0});
+      const d = movementDaily.get(date);
+      d.recip += toNum(fields[colIndex['recip']]);
+      d.retur += toNum(fields[colIndex['retur']]);
+      d.sales += toNum(fields[colIndex['sales']]);
+      d.koreksi += toNum(fields[colIndex['koreksi']]);
+    }
+  };
+
+  try{
+    parseSQLDump(text, handlers, (frac)=>{
+      setProgress(10 + frac*55);
+    });
+  }catch(err){
+    showError('Gagal mem-parsing file SQL: ' + err.message + '. Pastikan ini adalah file dump pg_dump format teks (COPY ... FROM stdin).');
+    progressWrap.classList.remove('show');
+    return;
+  }
+  text = null; // free memory
+
+  logLine(`Tabel m_tsale: ${raw.m_tsale.length.toLocaleString('id-ID')} baris`, 'ok');
+  logLine(`Tabel m_trans: ${raw.m_trans.length.toLocaleString('id-ID')} baris`, 'ok');
+  logLine(`Tabel clerek: ${raw.clerek.length.toLocaleString('id-ID')} baris`, 'ok');
+  logLine(`Tabel pohead/podet: ${raw.pohead.length.toLocaleString('id-ID')} / ${raw.podet.length.toLocaleString('id-ID')} baris`, 'ok');
+  logLine(`Tabel retur: ${raw.retur.length.toLocaleString('id-ID')} baris`, 'ok');
+  logLine(`Mutasi stok (m_mst_inv): ${mstInvRowCount.toLocaleString('id-ID')} baris (diringkas per hari)`, 'ok');
+
+  if (raw.m_tsale.length === 0 || raw.m_store.length === 0){
+    showError('File SQL tidak mengandung tabel m_tsale / m_store yang diharapkan. Pastikan ini dump database toko yang sesuai (sama seperti dump sebelumnya).');
+    progressWrap.classList.remove('show');
+    return;
+  }
+
+  setProgress(68);
+  logLine('Menghitung agregasi laporan...');
+  await sleep0();
+
+  let output;
+  try{
+    output = buildDashboardJSON(raw, movementDaily);
+  }catch(err){
+    showError('Terjadi kesalahan saat menghitung laporan: ' + err.message);
+    console.error(err);
+    progressWrap.classList.remove('show');
+    return;
+  }
+  setProgress(100);
+  logLine('Selesai!', 'ok');
+
+  window.__RAW_TABLES__ = raw;
+  window.__DASHBOARD_OUTPUT__ = output;
+  showResult(output, raw);
+}
+
+// ============================================================
+// AGGREGATION LOGIC (mirrors the server-side Python pipeline)
+// ============================================================
+function buildDashboardJSON(raw, movementDaily){
+  const empMap = {};
+  raw.m_employee.forEach(e=> empMap[e.kd_user] = e.nm_user);
+
+  // ---- derive m_tsale fields ----
+  const tsale = raw.m_tsale.map(r=>{
+    const jum = toNum(r.jum), disc = toNum(r.disc), cash = toNum(r.cash), card = toNum(r.card),
+          cash_out = toNum(r.cash_out), voucher = toNum(r.voucher), donasi = toNum(r.donasi),
+          kembali = toNum(r.kembali), hemat = toNum(r.hemat), point = toNum(r.point);
+    const parts = (r.no_fak||'').split('-');
+    const kasir_fak = parts[0];
+    const rest = parts[1] || '';
+    const seq = parseInt(rest.slice(4)) || 0;
+    const jam_only = (r.jam_f||'').split(' ')[1] || r.jam_f || '';
+    const hour = parseInt((jam_only.split(':')[0])) || 0;
+    return { ...r, jum, disc, cash, card, cash_out, voucher, donasi, kembali, hemat, point, kasir_fak, seq, jam_only, hour };
+  });
+
+  // ---- derive m_trans fields ----
+  const trans = raw.m_trans.map(r=>{
+    const price = toNum(r.price), qty = toNum(r.qty), disc_rp = toNum(r.disc_rp), avg_cost = toNum(r.avg_cost);
+    const line_gross = price*qty;
+    const line_net = line_gross - disc_rp;
+    const line_cogs = avg_cost*qty;
+    return { ...r, price, qty, disc_rp, avg_cost, line_gross, line_net, line_cogs, no_bill_int: parseInt(r.no_bill)||0 };
+  });
+
+  // ---- bill_agg: group trans by (kd_kasir, tgl_trs, no_bill_int) ----
+  const billMap = new Map();
+  for (const r of trans){
+    const k = r.kd_kasir+'|'+r.tgl_trs+'|'+r.no_bill_int;
+    if (!billMap.has(k)) billMap.set(k, { kd_kasir:r.kd_kasir, tgl_trs:r.tgl_trs, no_bill_int:r.no_bill_int, n_items:0, qty_sum:0, cogs:0, line_total:0 });
+    const b = billMap.get(k);
+    b.n_items += 1; b.qty_sum += r.qty; b.cogs += r.line_cogs; b.line_total += r.line_net;
+  }
+  // group bills by (kasir,date) sorted by no_bill_int -> array, for rank matching
+  const billsByKasirDate = new Map();
+  for (const b of billMap.values()){
+    const gk = b.kd_kasir+'|'+b.tgl_trs;
+    if (!billsByKasirDate.has(gk)) billsByKasirDate.set(gk, []);
+    billsByKasirDate.get(gk).push(b);
+  }
+  for (const arr of billsByKasirDate.values()) arr.sort((a,b)=>a.no_bill_int-b.no_bill_int);
+
+  // ---- m_tsale sorted by (kasir_fak, tgl_f, seq), ranked within group ----
+  const tsaleByGroup = new Map();
+  for (const r of tsale){
+    const gk = r.kasir_fak+'|'+r.tgl_f;
+    if (!tsaleByGroup.has(gk)) tsaleByGroup.set(gk, []);
+    tsaleByGroup.get(gk).push(r);
+  }
+  for (const arr of tsaleByGroup.values()) arr.sort((a,b)=> a.seq-b.seq);
+
+  // ---- merge: attach n_items / cogs to each tsale row via rank match ----
+  const merged = [];
+  for (const [gk, arr] of tsaleByGroup){
+    const bills = billsByKasirDate.get(gk) || [];
+    arr.forEach((r, rank)=>{
+      const b = bills[rank];
+      merged.push({
+        ...r,
+        n_items: b ? b.n_items : 0,
+        cogs: b ? b.cogs : 0,
+        kasir_name: empMap[r.kasir_fak] || r.kasir_fak
+      });
+    });
+  }
+
+  // ---- period ----
+  const dates = tsale.map(r=>r.tgl_f).filter(Boolean).sort();
+  const period_start = dates[0];
+  const period_end = dates[dates.length-1];
+  const n_days = Math.round((new Date(period_end) - new Date(period_start)) / 86400000) + 1;
+
+  const store = raw.m_store[0] || {};
+
+  // ================= SALES =================
+  const dailyMap = new Map();
+  for (const r of tsale){
+    if (!dailyMap.has(r.tgl_f)) dailyMap.set(r.tgl_f, { tgl_f:r.tgl_f, n_trans:0, revenue:0, disc:0, cash:0, card:0, voucher:0, donasi:0 });
+    const d = dailyMap.get(r.tgl_f);
+    d.n_trans++; d.revenue+=r.jum; d.disc+=r.disc; d.cash+=r.cash; d.card+=r.card; d.voucher+=r.voucher; d.donasi+=r.donasi;
+  }
+  const cogsDaily = new Map();
+  for (const r of merged){ cogsDaily.set(r.tgl_f, (cogsDaily.get(r.tgl_f)||0) + r.cogs); }
+  const qtyDaily = new Map();
+  for (const r of trans){ qtyDaily.set(r.tgl_trs, (qtyDaily.get(r.tgl_trs)||0) + r.qty); }
+
+  const daily = [...dailyMap.values()].sort((a,b)=> a.tgl_f.localeCompare(b.tgl_f)).map(d=>{
+    const cogs = cogsDaily.get(d.tgl_f) || 0;
+    const gross_profit = d.revenue - cogs;
+    const margin_pct = d.revenue>0 ? gross_profit/d.revenue*100 : 0;
+    const qty_sold = qtyDaily.get(d.tgl_f) || 0;
+    return { tgl_f:d.tgl_f, n_trans:d.n_trans, revenue:round2(d.revenue), disc:round2(d.disc), cash:round2(d.cash),
+      card:round2(d.card), voucher:round2(d.voucher), donasi:round2(d.donasi), cogs:round2(cogs),
+      gross_profit:round2(gross_profit), margin_pct:round2(margin_pct), qty_sold:round2(qty_sold) };
+  });
+
+  const hourlyMap = new Map();
+  for (const r of tsale){
+    if (!hourlyMap.has(r.hour)) hourlyMap.set(r.hour, {hour:r.hour, n_trans:0, revenue:0});
+    const h = hourlyMap.get(r.hour); h.n_trans++; h.revenue+=r.jum;
+  }
+  const hourly = [...hourlyMap.values()].sort((a,b)=>a.hour-b.hour).map(h=>({hour:h.hour,n_trans:h.n_trans,revenue:round2(h.revenue)}));
+
+  const katMap = {}; raw.m_kategori.forEach(k=> katMap[k.kategori]=k.nm_kategori);
+  const catAggMap = new Map();
+  for (const r of trans){
+    const k = r.kategori || '__NULL__';
+    if (!catAggMap.has(k)) catAggMap.set(k, { kategori:r.kategori, qty:0, revenue:0, cogs:0 });
+    const c = catAggMap.get(k); c.qty+=r.qty; c.revenue+=r.line_net; c.cogs+=r.line_cogs;
+  }
+  const catAgg = [...catAggMap.values()].map(c=>({ ...c, nm_kategori: katMap[c.kategori] || 'LAINNYA' }));
+  const by_category = sortDesc(catAgg, 'revenue').map(c=>({ kategori:c.kategori, nm_kategori:c.nm_kategori, qty:round2(c.qty), revenue:round2(c.revenue), cogs:round2(c.cogs) }));
+
+  const itemDeptMap = {}; raw.ms_item.forEach(it=> itemDeptMap[String(it.plu)] = it.dept);
+  const deptMap = {}; raw.m_dept.forEach(d=> deptMap[d.dept]=d.departemen);
+  const deptAggMap = new Map();
+  for (const r of trans){
+    const dept = itemDeptMap[String(r.plu)];
+    const k = dept || '__NULL__';
+    if (!deptAggMap.has(k)) deptAggMap.set(k, { dept, qty:0, revenue:0 });
+    const d = deptAggMap.get(k); d.qty+=r.qty; d.revenue+=r.line_net;
+  }
+  const deptAgg = [...deptAggMap.values()].map(d=>({ ...d, nama_dept: deptMap[d.dept] || 'LAINNYA' }));
+  const by_department = sortDesc(deptAgg, 'revenue').slice(0,15).map(d=>({ dept:d.dept, nama_dept:d.nama_dept, qty:round2(d.qty), revenue:round2(d.revenue) }));
+
+  const itemAggMap = new Map();
+  for (const r of trans){
+    const k = r.plu+'|'+r.descp;
+    if (!itemAggMap.has(k)) itemAggMap.set(k, { plu:r.plu, descp:r.descp, qty:0, revenue:0, cogs:0, n_trans:0 });
+    const it = itemAggMap.get(k); it.qty+=r.qty; it.revenue+=r.line_net; it.cogs+=r.line_cogs; it.n_trans++;
+  }
+  const itemAgg = [...itemAggMap.values()].map(it=>({...it, profit: it.revenue-it.cogs}));
+  const top_qty = sortDesc(itemAgg,'qty').slice(0,15).map(it=>({plu:it.plu,descp:it.descp,qty:round2(it.qty),revenue:round2(it.revenue)}));
+  const top_revenue = sortDesc(itemAgg,'revenue').slice(0,15).map(it=>({plu:it.plu,descp:it.descp,revenue:round2(it.revenue),qty:round2(it.qty)}));
+  const top_profit = sortDesc(itemAgg,'profit').slice(0,15).map(it=>({plu:it.plu,descp:it.descp,profit:round2(it.profit),revenue:round2(it.revenue)}));
+  const low_movers = sortAsc(itemAgg.filter(it=>it.qty>0),'qty').slice(0,15).map(it=>({plu:it.plu,descp:it.descp,qty:round2(it.qty),n_trans:it.n_trans}));
+
+  let cashSum=0, cardSum=0, voucherSum=0;
+  const byTypeMap = new Map();
+  for (const r of tsale){
+    cashSum += r.cash; cardSum += r.card; voucherSum += r.voucher;
+    const tipe = r.j_card || 'CASH';
+    if (!byTypeMap.has(tipe)) byTypeMap.set(tipe, {tipe, total:0, n:0});
+    const t = byTypeMap.get(tipe); t.n++;
+    t.total += (tipe === 'CASH') ? r.cash : r.card;
+  }
+  const payment = { cash: round2(cashSum), non_cash: round2(cardSum), voucher: round2(voucherSum),
+    by_type: [...byTypeMap.values()].map(t=>({tipe:t.tipe, total:round2(t.total), n:t.n})) };
+
+  const salesTotals = {
+    revenue: round2(tsale.reduce((s,r)=>s+r.jum,0)),
+    disc: round2(tsale.reduce((s,r)=>s+r.disc,0)),
+    n_trans: tsale.length,
+    qty_sold: round2(trans.reduce((s,r)=>s+r.qty,0)),
+    avg_trans: tsale.length ? round2(tsale.reduce((s,r)=>s+r.jum,0)/tsale.length) : 0,
+    n_items_unique: new Set(trans.map(r=>r.plu)).size
+  };
+
+  const sales = { daily, hourly, by_category, by_department, top_qty, top_revenue, top_profit, low_movers, payment, totals: salesTotals };
+
+  // ================= STOCK =================
+  const poheadMap = {}; raw.pohead.forEach(p=> poheadMap[p.faktur] = p);
+  const suppMap = {}; raw.m_supp.forEach(s=> suppMap[s.kd_supp] = s.nama_supp);
+  const podetJ = raw.podet.map(p=>{
+    const po = poheadMap[p.faktur] || {};
+    return { ...p, qty_rec: toNum(p.qty_rec), subtotal: toNum(p.subtotal), kd_supp: po.kd_supp, tgl_tiba: po.tgl_tiba,
+      nama_supp: suppMap[po.kd_supp] || po.kd_supp };
+  });
+  const masukDailyMap = new Map();
+  for (const p of podetJ){
+    if (!p.tgl_tiba) continue;
+    if (!masukDailyMap.has(p.tgl_tiba)) masukDailyMap.set(p.tgl_tiba, {tanggal:p.tgl_tiba, qty_masuk:0, nilai_masuk:0, fakturSet:new Set()});
+    const d = masukDailyMap.get(p.tgl_tiba); d.qty_masuk+=p.qty_rec; d.nilai_masuk+=p.subtotal; d.fakturSet.add(p.faktur);
+  }
+  const masuk_daily = [...masukDailyMap.values()].sort((a,b)=>a.tanggal.localeCompare(b.tanggal))
+    .map(d=>({tanggal:d.tanggal, qty_masuk:round2(d.qty_masuk), nilai_masuk:round2(d.nilai_masuk), n_faktur:d.fakturSet.size}));
+
+  const masukSuppMap = new Map();
+  for (const p of podetJ){
+    const k = p.nama_supp || '-';
+    if (!masukSuppMap.has(k)) masukSuppMap.set(k, {nama_supp:k, qty_masuk:0, nilai_masuk:0, fakturSet:new Set()});
+    const d = masukSuppMap.get(k); d.qty_masuk+=p.qty_rec; d.nilai_masuk+=p.subtotal; d.fakturSet.add(p.faktur);
+  }
+  const masuk_by_supplier = sortDesc([...masukSuppMap.values()].map(d=>({nama_supp:d.nama_supp, qty_masuk:round2(d.qty_masuk), nilai_masuk:round2(d.nilai_masuk), n_faktur:d.fakturSet.size})), 'nilai_masuk');
+
+  const topPurchMap = new Map();
+  for (const p of podetJ){
+    const k = p.plu+'|'+p.descp;
+    if (!topPurchMap.has(k)) topPurchMap.set(k, {plu:p.plu, descp:p.descp, qty:0, nilai:0});
+    const d = topPurchMap.get(k); d.qty+=p.qty_rec; d.nilai+=p.subtotal;
+  }
+  const top_purchased_items = sortDesc([...topPurchMap.values()],'nilai').slice(0,15).map(d=>({...d, qty:round2(d.qty), nilai:round2(d.nilai)}));
+
+  const returRows = raw.retur.map(r=>{
+    const qty_ret = toNum(r.qty_ret), cost = toNum(r.cost);
+    return { ...r, qty_ret, cost, nilai: qty_ret*cost, nama_supp: suppMap[r.kd_supp] || r.kd_supp };
+  });
+  const returDailyMap = new Map();
+  for (const r of returRows){
+    if (!returDailyMap.has(r.tgl_ret)) returDailyMap.set(r.tgl_ret, {tanggal:r.tgl_ret, qty_retur:0, nilai_retur:0, fakturSet:new Set()});
+    const d = returDailyMap.get(r.tgl_ret); d.qty_retur+=r.qty_ret; d.nilai_retur+=r.nilai; d.fakturSet.add(r.faktur);
+  }
+  const retur_daily = [...returDailyMap.values()].sort((a,b)=>a.tanggal.localeCompare(b.tanggal))
+    .map(d=>({tanggal:d.tanggal, qty_retur:round2(d.qty_retur), nilai_retur:round2(d.nilai_retur), n_faktur:d.fakturSet.size}));
+
+  const returReasonMap = new Map();
+  for (const r of returRows){
+    const k = r.ket || '-';
+    if (!returReasonMap.has(k)) returReasonMap.set(k, {ket:k, qty:0, nilai:0, n:0});
+    const d = returReasonMap.get(k); d.qty+=r.qty_ret; d.nilai+=r.nilai; d.n++;
+  }
+  const retur_by_reason = sortDesc([...returReasonMap.values()].map(d=>({...d, qty:round2(d.qty), nilai:round2(d.nilai)})), 'nilai');
+
+  const returSuppMap = new Map();
+  for (const r of returRows){
+    const k = r.nama_supp || '-';
+    if (!returSuppMap.has(k)) returSuppMap.set(k, {nama_supp:k, qty:0, nilai:0});
+    const d = returSuppMap.get(k); d.qty+=r.qty_ret; d.nilai+=r.nilai;
+  }
+  const retur_by_supplier = sortDesc([...returSuppMap.values()].map(d=>({...d, qty:round2(d.qty), nilai:round2(d.nilai)})), 'nilai');
+
+  const movement_daily = [...movementDaily.values()]
+    .filter(d=> d.tanggal >= period_start)
+    .sort((a,b)=>a.tanggal.localeCompare(b.tanggal))
+    .map(d=>({tanggal:d.tanggal, recip:round2(d.recip), retur:round2(d.retur), sales:round2(d.sales), koreksi:round2(d.koreksi)}));
+
+  const stockTotals = {
+    qty_masuk: round2(podetJ.reduce((s,p)=>s+p.qty_rec,0)),
+    nilai_masuk: round2(podetJ.reduce((s,p)=>s+p.subtotal,0)),
+    n_po: raw.pohead.length,
+    qty_retur: round2(returRows.reduce((s,r)=>s+r.qty_ret,0)),
+    nilai_retur: round2(returRows.reduce((s,r)=>s+r.nilai,0)),
+    n_retur: returRows.length
+  };
+  const stock = { masuk_daily, masuk_by_supplier, top_purchased_items, retur_daily, retur_by_reason, retur_by_supplier, movement_daily, totals: stockTotals };
+
+  // ================= CASHIER =================
+  const clerekRows = raw.clerek.map(c=>{
+    const jml_trans=toNum(c.jml_trans), amount=toNum(c.amount), card=toNum(c.card), disc=toNum(c.disc),
+          selisih=toNum(c.selisih), cash_out=toNum(c.cash_out), donasi=toNum(c.donasi), hemat=toNum(c.hemat), voucher=toNum(c.voucher), jml_clerek=toNum(c.jml_clerek);
+    return { ...c, jml_trans, amount, card, disc, selisih, cash_out, donasi, hemat, voucher, jml_clerek,
+      nm_kasir_clean: empMap[c.kd_kasir] || c.nm_kasir };
+  });
+  const kasirSummaryMap = new Map();
+  for (const c of clerekRows){
+    const k = c.kd_kasir+'|'+c.nm_kasir_clean;
+    if (!kasirSummaryMap.has(k)) kasirSummaryMap.set(k, { kd_kasir:c.kd_kasir, nm_kasir_clean:c.nm_kasir_clean, hariSet:new Set(), total_trans:0, total_setor:0, total_non_tunai:0, total_disc:0, total_selisih:0, total_hemat:0 });
+    const s = kasirSummaryMap.get(k);
+    s.hariSet.add(c.tgl_clerek); s.total_trans+=c.jml_trans; s.total_setor+=c.amount; s.total_non_tunai+=c.card; s.total_disc+=c.disc; s.total_selisih+=c.selisih; s.total_hemat+=c.hemat;
+  }
+  const kasirSummary = sortDesc([...kasirSummaryMap.values()].map(s=>({
+    kd_kasir:s.kd_kasir, nm_kasir_clean:s.nm_kasir_clean, hari_kerja:s.hariSet.size, total_trans:round2(s.total_trans),
+    total_setor:round2(s.total_setor), total_non_tunai:round2(s.total_non_tunai), total_disc:round2(s.total_disc),
+    total_selisih:round2(s.total_selisih), total_hemat:round2(s.total_hemat), avg_per_hari: s.hariSet.size? round2(s.total_setor/s.hariSet.size):0
+  })), 'total_setor');
+
+  const clerek_daily = [...clerekRows].sort((a,b)=> (a.tgl_clerek+a.kd_kasir).localeCompare(b.tgl_clerek+b.kd_kasir))
+    .map(c=>({ tgl_clerek:c.tgl_clerek, kd_kasir:c.kd_kasir, nm_kasir_clean:c.nm_kasir_clean, jml_trans:round2(c.jml_trans),
+      amount:round2(c.amount), card:round2(c.card), disc:round2(c.disc), selisih:round2(c.selisih), cash_out:round2(c.cash_out), donasi:round2(c.donasi), hemat:round2(c.hemat) }));
+
+  const cashierTotals = {
+    total_selisih: round2(clerekRows.reduce((s,c)=>s+c.selisih,0)),
+    total_setor: round2(clerekRows.reduce((s,c)=>s+c.amount,0)),
+    n_kasir_aktif: new Set(clerekRows.map(c=>c.kd_kasir)).size
+  };
+  const cashier = { summary: kasirSummary, daily: clerek_daily, totals: cashierTotals };
+
+  // ================= P&L =================
+  const totalRevenue = tsale.reduce((s,r)=>s+r.jum,0);
+  const totalDisc = tsale.reduce((s,r)=>s+r.disc,0);
+  const totalCogs = merged.reduce((s,r)=>s+r.cogs,0);
+  const grossProfit = totalRevenue - totalCogs;
+  const catPl = sortDesc(catAgg.map(c=>({ nm_kategori: katMap[c.kategori] || 'LAINNYA', revenue: c.revenue, cogs: c.cogs, gross_profit: c.revenue-c.cogs })), 'gross_profit')
+    .map(c=>({ nm_kategori:c.nm_kategori, revenue:round2(c.revenue), cogs:round2(c.cogs), gross_profit:round2(c.gross_profit) }));
+  const pl = {
+    daily: daily.map(d=>({ tgl_f:d.tgl_f, revenue:d.revenue, cogs:d.cogs, gross_profit:d.gross_profit, margin_pct:d.margin_pct, disc:d.disc })),
+    by_category: catPl,
+    totals: { revenue: round2(totalRevenue), disc: round2(totalDisc), cogs: round2(totalCogs), gross_profit: round2(grossProfit),
+      margin_pct: totalRevenue? round2(grossProfit/totalRevenue*100) : 0, nilai_retur_supplier: stockTotals.nilai_retur }
+  };
+
+  // ================= TRANSACTIONS =================
+  const transactions = [...merged].sort((a,b)=> (a.tgl_f+a.jam_only).localeCompare(b.tgl_f+b.jam_only)).map(r=>({
+    no_fak:r.no_fak, tgl_f:r.tgl_f, jam:r.jam_only, kasir_name:r.kasir_name, jum:round2(r.jum), disc:round2(r.disc),
+    cash:round2(r.cash), card:round2(r.card), tipe_bayar:r.j_card, voucher:round2(r.voucher), kembali:round2(r.kembali),
+    member:r.member, n_items: r.n_items
+  }));
+
+  // ================= OTHER =================
+  const memMap = {}; raw.m_cust.forEach(m=> memMap[m.no_kartu] = m.nama_member);
+  const memberAggMap = new Map();
+  const memberSet = new Set();
+  for (const r of tsale){
+    if (!r.member) continue;
+    memberSet.add(r.member);
+    const nama = memMap[r.member] || r.member;
+    const k = r.member+'|'+nama;
+    if (!memberAggMap.has(k)) memberAggMap.set(k, {member:r.member, nama_member:nama, n_trans:0, total_belanja:0});
+    const m = memberAggMap.get(k); m.n_trans++; m.total_belanja+=r.jum;
+  }
+  const top_members = sortDesc([...memberAggMap.values()].map(m=>({...m, total_belanja:round2(m.total_belanja)})), 'total_belanja').slice(0,15);
+
+  const promoAggMap = new Map();
+  for (const p of raw.m_promo_kasir){
+    const nilai = toNum(p.nilai);
+    if (!promoAggMap.has(p.faktur)) promoAggMap.set(p.faktur, {faktur:p.faktur, nilai:0, n_pakai:0});
+    const d = promoAggMap.get(p.faktur); d.nilai+=nilai; d.n_pakai++;
+  }
+  const promo_top = sortDesc([...promoAggMap.values()].map(d=>({...d, nilai:round2(d.nilai)})), 'nilai').slice(0,15);
+
+  const returSuppForPerf = new Map(retur_by_supplier.map(r=>[r.nama_supp, r]));
+  const supplier_performance = sortDesc(masuk_by_supplier.map(s=>{
+    const ret = returSuppForPerf.get(s.nama_supp) || {qty:0, nilai:0};
+    const retur_rate_pct = s.nilai_masuk>0 ? round2(ret.nilai/s.nilai_masuk*100) : 0;
+    return { nama_supp:s.nama_supp, qty_masuk:s.qty_masuk, nilai_masuk:s.nilai_masuk, n_faktur:s.n_faktur, qty:ret.qty, nilai:ret.nilai, retur_rate_pct };
+  }), 'nilai_masuk').slice(0,15);
+
+  const other = { top_members, n_members_active: memberSet.size, promo_top, supplier_performance };
+
+  // ================= META =================
+  const meta = {
+    store_name: store.nama_store, kota: store.kota, alamat: `${store.alamat1||''}, ${store.alamat2||''}`,
+    kd_store: store.kd_store, period_start, period_end, n_days,
+    generated_at: new Date().toISOString().slice(0,19).replace('T',' ')
+  };
+
+  return { meta, sales, stock, cashier, pl, transactions, other };
+}
+
+// ============================================================
+// RESULT DISPLAY + DOWNLOADS
+// ============================================================
+function fmtIDRq(v){ if (v===null||v===undefined||isNaN(v)) return '-'; return 'Rp'+Math.round(v).toLocaleString('id-ID'); }
+
+function showResult(output, raw){
+  progressWrap.classList.remove('show');
+  const resultCard = document.getElementById('result-card');
+  const dlCard = document.getElementById('download-card');
+  resultCard.classList.add('show');
+  dlCard.classList.add('show');
+
+  const kpiRow = document.getElementById('kpi-row');
+  const t = output.sales.totals, pl = output.pl.totals;
+  kpiRow.innerHTML = `
+    <div class="kpi"><div class="label">Pendapatan</div><div class="value">${fmtIDRq(t.revenue)}</div></div>
+    <div class="kpi"><div class="label">Transaksi</div><div class="value">${t.n_trans.toLocaleString('id-ID')}</div></div>
+    <div class="kpi"><div class="label">Laba Kotor</div><div class="value">${fmtIDRq(pl.gross_profit)}</div></div>
+    <div class="kpi"><div class="label">Margin</div><div class="value">${pl.margin_pct.toFixed(1)}%</div></div>
+  `;
+  document.getElementById('result-meta').textContent =
+    `${output.meta.store_name} (${output.meta.kd_store}) · Periode ${output.meta.period_start} s/d ${output.meta.period_end} (${output.meta.n_days} hari)`;
+
+  // populate raw-table select (exclude m_mst_inv, already aggregated)
+  const sel = document.getElementById('table-select');
+  sel.innerHTML = '';
+  WANTED_TABLES.forEach(t=>{
+    const n = (raw[t]||[]).length;
+    const opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = `${t} (${n.toLocaleString('id-ID')} baris)`;
+    sel.appendChild(opt);
+  });
+}
+
+function downloadBlob(content, filename, mime){
+  const blob = new Blob([content], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+function rowsToCSV(rows){
+  if (!rows || !rows.length) return 'Tidak ada data\n';
+  const cols = Object.keys(rows[0]);
+  const esc = v=>{
+    if (v===null||v===undefined) return '';
+    const s = String(v);
+    if (/[",\n;]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  };
+  const lines = [cols.join(';')];
+  for (const r of rows) lines.push(cols.map(c=>esc(r[c])).join(';'));
+  return lines.join('\n');
+}
+
+document.getElementById('dl-dashboard-json').addEventListener('click', ()=>{
+  const output = window.__DASHBOARD_OUTPUT__;
+  if (!output) return;
+  const json = JSON.stringify(output);
+  const fname = `Data_Toko_${output.meta.kd_store}_${output.meta.period_start}_${output.meta.period_end}.json`;
+  downloadBlob(json, fname, 'application/json');
+});
+
+document.getElementById('dl-one-csv').addEventListener('click', ()=>{
+  const raw = window.__RAW_TABLES__;
+  const t = document.getElementById('table-select').value;
+  if (!raw || !raw[t]) return;
+  const csv = rowsToCSV(raw[t]);
+  downloadBlob('\uFEFF'+csv, `${t}.csv`, 'text/csv;charset=utf-8');
+});
+document.getElementById('dl-one-json').addEventListener('click', ()=>{
+  const raw = window.__RAW_TABLES__;
+  const t = document.getElementById('table-select').value;
+  if (!raw || !raw[t]) return;
+  downloadBlob(JSON.stringify(raw[t], null, 2), `${t}.json`, 'application/json');
+});
+function addRawSheet(wb, name, rows){
+  const ws = wb.addWorksheet(name.slice(0,31), { views:[{state:'frozen', ySplit:1}] });
+  const sample = (rows && rows.length) ? rows[0] : {Info:'Tidak ada data'};
+  const keys = Object.keys(sample);
+  ws.columns = keys.map(k=>({ header:k, key:k, width: Math.max(10, Math.min(28, k.length+4)) }));
+  (rows && rows.length ? rows : [sample]).forEach(r=> ws.addRow(r));
+  // style header row — bold, teal fill, white text
+  const hdr = ws.getRow(1);
+  hdr.height = 20;
+  keys.forEach((k,i)=>{
+    const cell = hdr.getCell(i+1);
+    cell.font = { bold:true, color:{argb:'FFF6F3EC'}, size:11 };
+    cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF1B4C43'} };
+    cell.alignment = { vertical:'middle' };
+  });
+  if (rows && rows.length) ws.autoFilter = { from:{row:1,column:1}, to:{row:1,column:keys.length} };
+}
+
+document.getElementById('dl-all-excel').addEventListener('click', async ()=>{
+  const raw = window.__RAW_TABLES__;
+  if (!raw) return;
+  const btn = document.getElementById('dl-all-excel');
+  const original = btn.textContent;
+  btn.textContent = 'Menyiapkan file...'; btn.setAttribute('disabled','');
+  await new Promise(r=>setTimeout(r,10));
+  try{
+    const wb = new ExcelJS.Workbook();
+    WANTED_TABLES.forEach(t=> addRawSheet(wb, t, raw[t]));
+    const output = window.__DASHBOARD_OUTPUT__;
+    const fname = output ? `Tabel_Mentah_${output.meta.kd_store}_${output.meta.period_start}_${output.meta.period_end}.xlsx` : 'Tabel_Mentah.xlsx';
+    const buffer = await wb.xlsx.writeBuffer();
+    downloadBlob(buffer, fname, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  }catch(err){
+    console.error(err);
+    showError('Gagal membuat file Excel: ' + err.message);
+  }finally{
+    btn.textContent = original; btn.removeAttribute('disabled');
+  }
+});
+
+// ============================================================
+// UPLOAD UI WIRING
+// ============================================================
+const fileInputEl = document.getElementById('file-input');
+const uploadBoxEl = document.getElementById('upload-box');
+const filenameTag = document.getElementById('filename-tag');
+
+function onFileChosen(file){
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith('.sql')){
+    showError('File harus berformat .sql (hasil pg_dump). File yang dipilih: ' + file.name);
+    return;
+  }
+  filenameTag.style.display = 'inline-block';
+  filenameTag.textContent = file.name + ' · ' + (file.size/1024/1024).toFixed(1) + ' MB';
+  processSQLFile(file);
+}
+fileInputEl.addEventListener('change', e=> onFileChosen(e.target.files[0]));
+['dragenter','dragover'].forEach(ev=> uploadBoxEl.addEventListener(ev, e=>{ e.preventDefault(); uploadBoxEl.classList.add('dragover'); }));
+['dragleave','drop'].forEach(ev=> uploadBoxEl.addEventListener(ev, e=>{ e.preventDefault(); uploadBoxEl.classList.remove('dragover'); }));
+uploadBoxEl.addEventListener('drop', e=>{ const f = e.dataTransfer.files[0]; onFileChosen(f); });
+
+</script>
+</body>
+</html>
